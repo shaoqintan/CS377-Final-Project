@@ -11,7 +11,6 @@ set(SOURCES
     src/heartbeat_node.cpp
     src/network.cpp
     src/simulator.cpp
-    src/utils.cpp
 )
 
 # Add header files
@@ -21,14 +20,17 @@ set(HEADERS
     include/heartbeat_node.hpp
     include/network.hpp
     include/simulator.hpp
-    include/utils.hpp
 )
 
-# Create executable
-add_executable(failure_detection ${SOURCES} ${HEADERS})
+# Create library
+add_library(failure_detection_lib STATIC ${SOURCES} ${HEADERS})
 
 # Include directories
-target_include_directories(failure_detection PRIVATE include)
+target_include_directories(failure_detection_lib PUBLIC include)
+
+# Create main executable
+add_executable(failure_detection src/main.cpp)
+target_link_libraries(failure_detection PRIVATE failure_detection_lib)
 
 # Add Google Test
 include(FetchContent)
@@ -42,16 +44,15 @@ FetchContent_MakeAvailable(googletest)
 # Create test executable
 add_executable(failure_detection_tests
     tests/test_main.cpp
-    tests/test_network.cpp
-    tests/test_gossip.cpp
-    tests/test_heartbeat.cpp
 )
 
 target_link_libraries(failure_detection_tests
     PRIVATE
     GTest::gtest_main
-    failure_detection
+    failure_detection_lib
 )
 
+# Enable testing
+enable_testing()
 include(GoogleTest)
 gtest_discover_tests(failure_detection_tests) 

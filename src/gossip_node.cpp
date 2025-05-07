@@ -37,6 +37,7 @@ void GossipNode::process_message(const Message& msg) {
         if (it != node_states.end()) {
             it->second.last_seen = msg.timestamp;
             it->second.suspicion_level = 0;
+            it->second.is_alive = true;  // Reset alive status when we hear from a node
         }
     }
     
@@ -51,10 +52,8 @@ void GossipNode::periodic_task() {
     if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_gossip).count() >= gossip_interval_ms) {
         gossip_round();
         last_gossip = now;
-    }
-    
-    // Update suspicion levels
-    {
+        
+        // Update suspicion levels
         std::lock_guard<std::mutex> lock(states_mutex);
         for (auto& [id, state] : node_states) {
             if (id != this->id) {  // Don't check self
@@ -117,7 +116,7 @@ std::vector<std::string> GossipNode::get_failed_nodes() const {
     std::lock_guard<std::mutex> lock(states_mutex);
     
     for (const auto& [id, state] : node_states) {
-        if (!state.is_alive) {
+        if (!state.is_alive || state.suspicion_level >= suspicion_threshold) {
             failed.push_back(id);
         }
     }
@@ -169,4 +168,14 @@ GossipNode::Metrics GossipNode::get_metrics() const {
 
 void GossipNode::reset_metrics() {
     metrics = {0, 0, 0, 0, get_current_time()};
+}
+
+void GossipNode::add_peer(const std::string& peer_id) {
+    std::lock_guard<std::mutex> lock(states_mutex);
+    node_states[peer_id] = {true, get_current_time(), 0};
+}
+
+void GossipNode::remove_peer(const std::string& peer_id) {
+    std::lock_guard<std::mutex> lock(states_mutex);
+    node_states.erase(peer_id);
 } 

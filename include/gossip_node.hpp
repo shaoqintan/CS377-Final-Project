@@ -13,7 +13,7 @@ private:
         int suspicion_level;
     };
     std::unordered_map<std::string, NodeState> node_states;
-    std::mutex states_mutex;
+    mutable std::mutex states_mutex;
 
     // Gossip parameters
     const int gossip_interval_ms = 1000;  // Time between gossip rounds

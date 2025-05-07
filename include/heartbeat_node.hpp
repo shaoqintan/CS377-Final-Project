@@ -2,6 +2,7 @@
 
 #include "node.hpp"
 #include <unordered_map>
+#include <chrono>
 
 class HeartbeatNode : public Node {
 private:
@@ -11,7 +12,7 @@ private:
         std::chrono::system_clock::time_point last_heartbeat;
     };
     std::unordered_map<std::string, NodeState> node_states;
-    std::mutex states_mutex;
+    mutable std::mutex states_mutex;
 
     // Heartbeat parameters
     const int heartbeat_interval_ms = 1000;    // Time between heartbeats

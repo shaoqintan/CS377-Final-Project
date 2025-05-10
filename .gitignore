@@ -1,14 +1,33 @@
-# Ignore the entire build directory
-build/
-
-# Ignore general CMake and compiled files (if outside build/)
-CMakeFiles/
-CMakeCache.txt
+# CMake build artifacts
+/build/
+/CMakeFiles/
+/CMakeCache.txt
 cmake_install.cmake
 CTestTestfile.cmake
 Makefile
-*.a
+
+# Compiled binaries and libraries
 *.o
-*.out
+*.a
 *.so
+*.out
 *.exe
+
+# IDE and editor configs
+.vscode/
+
+# Logs and other temp files
+*.log
+*.tmp
+*.swp
+*.DS_Store
+Thumbs.db
+
+# Python virtual environments (if used)
+venv/
+__pycache__/
+*.pyc
+
+# Ignore test binaries (optional, if generated)
+tests/*.out
+tests/*.o

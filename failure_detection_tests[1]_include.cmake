@@ -1,0 +1,5 @@
+if(EXISTS "/nfs/elsrv4/users4/grad/shaoqintan/cs377/Final project/failure_detection_tests[1]_tests.cmake")
+  include("/nfs/elsrv4/users4/grad/shaoqintan/cs377/Final project/failure_detection_tests[1]_tests.cmake")
+else()
+  add_test(failure_detection_tests_NOT_BUILT failure_detection_tests_NOT_BUILT)
+endif()

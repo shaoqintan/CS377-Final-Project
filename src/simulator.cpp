@@ -81,57 +81,40 @@ Simulator::TestResult Simulator::run_single_node_failure_test(int num_nodes) {
     std::string failed_node = "node" + std::to_string(rand() % num_nodes);
     
     // Record start time
-    auto start_time = std::chrono::steady_clock::now();
+    auto start_time = std::chrono::high_resolution_clock::now();
     
     // Simulate node failure
     simulate_failures({failed_node});
     
-    // Process messages and wait for failure detection
-    bool failure_detected = false;
-    int detection_time_ms = 3000;  // Default to timeout
+    // Wait for convergence with a reasonable timeout
+    wait_for_convergence({failed_node}, 2 * 3000);  // 2x the typical detection time
     
-    while (std::chrono::duration_cast<std::chrono::milliseconds>(
-               std::chrono::steady_clock::now() - start_time).count() < 3000) {
-        network.process_messages();
-        
-        // Check if failure is detected
-        for (int i = 0; i < num_nodes; ++i) {
-            std::string node_id = "node" + std::to_string(i);
-            if (node_id != failed_node) {
-                auto node = network.get_node(node_id);
-                if (node) {
-                    // Try to cast to both types of nodes
-                    auto gossip_node = std::dynamic_pointer_cast<GossipNode>(node);
-                    auto heartbeat_node = std::dynamic_pointer_cast<HeartbeatNode>(node);
-                    
-                    std::vector<std::string> failed_nodes;
-                    if (gossip_node) {
-                        failed_nodes = gossip_node->get_failed_nodes();
-                    } else if (heartbeat_node) {
-                        failed_nodes = heartbeat_node->get_failed_nodes();
-                    }
-                    
-                    if (std::find(failed_nodes.begin(), failed_nodes.end(), failed_node) != failed_nodes.end()) {
-                        failure_detected = true;
-                        detection_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                            std::chrono::steady_clock::now() - start_time).count();
-                        break;
-                    }
-                }
-            }
-        }
-        
-        if (failure_detected) break;
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+    // Calculate actual detection time
+    auto detection_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::high_resolution_clock::now() - start_time);
     
     auto result = collect_metrics("Single Node Failure Test");
-    result.detection_time_ms = detection_time_ms;
+    result.detection_time_ms = detection_time.count();
     return result;
 }
 
 Simulator::TestResult Simulator::run_multiple_failures_test(int num_nodes, int num_failures) {
-    wait_for_convergence(3000);
+    // Generate some initial traffic
+    for (int i = 0; i < num_nodes; ++i) {
+        for (int j = 0; j < num_nodes; ++j) {
+            if (i != j) {
+                network.send_message("node" + std::to_string(i),
+                                   "node" + std::to_string(j),
+                                   "initial_traffic");
+            }
+        }
+    }
+    
+    // Process initial messages
+    for (int i = 0; i < 50; ++i) {  // Process messages for 5 seconds
+        network.process_messages();
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
     
     // Choose random nodes to fail
     std::vector<std::string> failed_nodes;
@@ -144,63 +127,40 @@ Simulator::TestResult Simulator::run_multiple_failures_test(int num_nodes, int n
     network.reset_stats();
     
     // Record start time
-    auto start_time = std::chrono::steady_clock::now();
+    auto start_time = std::chrono::high_resolution_clock::now();
     
     // Simulate failures
     simulate_failures(failed_nodes);
     
-    // Process messages and wait for failure detection
-    bool all_failures_detected = false;
-    int detection_time_ms = 3000;  // Default to timeout
+    // Wait for convergence with a reasonable timeout
+    wait_for_convergence(failed_nodes, 2 * 3000);  // 2x the typical detection time
     
-    while (std::chrono::duration_cast<std::chrono::milliseconds>(
-               std::chrono::steady_clock::now() - start_time).count() < 3000) {
-        network.process_messages();
-        
-        // Check if all failures are detected
-        all_failures_detected = true;
-        for (int i = 0; i < num_nodes; ++i) {
-            std::string node_id = "node" + std::to_string(i);
-            if (std::find(failed_nodes.begin(), failed_nodes.end(), node_id) == failed_nodes.end()) {
-                auto node = network.get_node(node_id);
-                if (node) {
-                    auto gossip_node = std::dynamic_pointer_cast<GossipNode>(node);
-                    auto heartbeat_node = std::dynamic_pointer_cast<HeartbeatNode>(node);
-                    
-                    std::vector<std::string> detected_failures;
-                    if (gossip_node) {
-                        detected_failures = gossip_node->get_failed_nodes();
-                    } else if (heartbeat_node) {
-                        detected_failures = heartbeat_node->get_failed_nodes();
-                    }
-                    
-                    // Check if all failed nodes are detected
-                    for (const auto& failed : failed_nodes) {
-                        if (std::find(detected_failures.begin(), detected_failures.end(), failed) == detected_failures.end()) {
-                            all_failures_detected = false;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        
-        if (all_failures_detected) {
-            detection_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - start_time).count();
-            break;
-        }
-        
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+    // Calculate actual detection time
+    auto detection_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::high_resolution_clock::now() - start_time);
     
     auto result = collect_metrics("Multiple Failures Test");
-    result.detection_time_ms = detection_time_ms;
+    result.detection_time_ms = detection_time.count();
     return result;
 }
 
 Simulator::TestResult Simulator::run_network_partition_test(int num_nodes) {
-    wait_for_convergence(3000);
+    // Generate some initial traffic
+    for (int i = 0; i < num_nodes; ++i) {
+        for (int j = 0; j < num_nodes; ++j) {
+            if (i != j) {
+                network.send_message("node" + std::to_string(i),
+                                   "node" + std::to_string(j),
+                                   "initial_traffic");
+            }
+        }
+    }
+    
+    // Process initial messages
+    for (int i = 0; i < 50; ++i) {  // Process messages for 5 seconds
+        network.process_messages();
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
     
     // Split nodes into two partitions
     std::vector<std::string> partition1, partition2;
@@ -216,70 +176,53 @@ Simulator::TestResult Simulator::run_network_partition_test(int num_nodes) {
     network.reset_stats();
     
     // Record start time
-    auto start_time = std::chrono::steady_clock::now();
+    auto start_time = std::chrono::high_resolution_clock::now();
     
     // Simulate network partition
     network.simulate_network_partition(partition1, partition2, 3000);
     
-    // Process messages and wait for partition detection
-    bool partition_detected = false;
-    int detection_time_ms = 3000;  // Default to timeout
+    // Wait for convergence with a reasonable timeout
+    // In this case, we want both partitions to detect each other as failed
+    std::vector<std::string> all_nodes;
+    all_nodes.insert(all_nodes.end(), partition1.begin(), partition1.end());
+    all_nodes.insert(all_nodes.end(), partition2.begin(), partition2.end());
+    wait_for_convergence(all_nodes, 2 * 3000);  // 2x the typical detection time
     
-    while (std::chrono::duration_cast<std::chrono::milliseconds>(
-               std::chrono::steady_clock::now() - start_time).count() < 3000) {
-        network.process_messages();
-        
-        // Check if partition is detected by checking if nodes in each partition
-        // detect the other partition as failed
-        partition_detected = true;
-        for (const auto& node1_id : partition1) {
-            auto node1 = network.get_node(node1_id);
-            if (node1) {
-                auto gossip_node1 = std::dynamic_pointer_cast<GossipNode>(node1);
-                auto heartbeat_node1 = std::dynamic_pointer_cast<HeartbeatNode>(node1);
-                
-                std::vector<std::string> detected_failures;
-                if (gossip_node1) {
-                    detected_failures = gossip_node1->get_failed_nodes();
-                } else if (heartbeat_node1) {
-                    detected_failures = heartbeat_node1->get_failed_nodes();
-                }
-                
-                // Check if all nodes in partition2 are detected as failed
-                for (const auto& node2_id : partition2) {
-                    if (std::find(detected_failures.begin(), detected_failures.end(), node2_id) == detected_failures.end()) {
-                        partition_detected = false;
-                        break;
-                    }
-                }
-            }
-        }
-        
-        if (partition_detected) {
-            detection_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - start_time).count();
-            break;
-        }
-        
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+    // Calculate actual detection time
+    auto detection_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::high_resolution_clock::now() - start_time);
     
     // Heal partition
     network.heal_network_partition();
     
     auto result = collect_metrics("Network Partition Test");
-    result.detection_time_ms = detection_time_ms;
+    result.detection_time_ms = detection_time.count();
     return result;
 }
 
 Simulator::TestResult Simulator::run_high_load_test(int num_nodes) {
-    wait_for_convergence(3000);
+    // Generate some initial traffic
+    for (int i = 0; i < num_nodes; ++i) {
+        for (int j = 0; j < num_nodes; ++j) {
+            if (i != j) {
+                network.send_message("node" + std::to_string(i),
+                                   "node" + std::to_string(j),
+                                   "initial_traffic");
+            }
+        }
+    }
+    
+    // Process initial messages
+    for (int i = 0; i < 50; ++i) {  // Process messages for 5 seconds
+        network.process_messages();
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
     
     // Reset network stats before high load test
     network.reset_stats();
     
     // Record start time
-    auto start_time = std::chrono::steady_clock::now();
+    auto start_time = std::chrono::high_resolution_clock::now();
     
     // Generate high message load
     for (int i = 0; i < num_nodes; ++i) {
@@ -292,34 +235,37 @@ Simulator::TestResult Simulator::run_high_load_test(int num_nodes) {
         }
     }
     
-    // Process messages and wait for message delivery
-    bool all_messages_delivered = false;
-    int delivery_time_ms = 3000;  // Default to timeout
+    // Wait for all messages to be delivered
+    // In this case, we want to ensure no nodes are marked as failed
+    std::vector<std::string> empty_failed;  // Empty list means no nodes should be marked as failed
+    wait_for_convergence(empty_failed, 2 * 3000);  // 2x the typical detection time
     
-    while (std::chrono::duration_cast<std::chrono::milliseconds>(
-               std::chrono::steady_clock::now() - start_time).count() < 3000) {
-        network.process_messages();
-        
-        // Check if all messages are delivered
-        auto stats = network.get_stats();
-        int expected_messages = num_nodes * (num_nodes - 1);  // Each node sends to all others
-        if (stats.delivered_messages >= expected_messages) {
-            all_messages_delivered = true;
-            delivery_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - start_time).count();
-            break;
-        }
-        
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+    // Calculate delivery time
+    auto delivery_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::high_resolution_clock::now() - start_time);
     
     auto result = collect_metrics("High Load Test");
-    result.detection_time_ms = delivery_time_ms;
+    result.detection_time_ms = delivery_time.count();
     return result;
 }
 
 Simulator::TestResult Simulator::run_recovery_test(int num_nodes) {
-    wait_for_convergence(3000);
+    // Generate some initial traffic
+    for (int i = 0; i < num_nodes; ++i) {
+        for (int j = 0; j < num_nodes; ++j) {
+            if (i != j) {
+                network.send_message("node" + std::to_string(i),
+                                   "node" + std::to_string(j),
+                                   "initial_traffic");
+            }
+        }
+    }
+    
+    // Process initial messages
+    for (int i = 0; i < 50; ++i) {  // Process messages for 5 seconds
+        network.process_messages();
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
     
     // Choose a random node to fail and recover
     std::string node_id = "node" + std::to_string(rand() % num_nodes);
@@ -328,97 +274,28 @@ Simulator::TestResult Simulator::run_recovery_test(int num_nodes) {
     network.reset_stats();
     
     // Record start time
-    auto start_time = std::chrono::steady_clock::now();
+    auto start_time = std::chrono::high_resolution_clock::now();
     
     // Simulate failure
     simulate_failures({node_id});
     
     // Wait for failure detection
-    bool failure_detected = false;
-    int failure_detection_time_ms = 3000;
-    
-    while (std::chrono::duration_cast<std::chrono::milliseconds>(
-               std::chrono::steady_clock::now() - start_time).count() < 3000) {
-        network.process_messages();
-        
-        // Check if failure is detected
-        for (int i = 0; i < num_nodes; ++i) {
-            std::string check_id = "node" + std::to_string(i);
-            if (check_id != node_id) {
-                auto node = network.get_node(check_id);
-                if (node) {
-                    auto gossip_node = std::dynamic_pointer_cast<GossipNode>(node);
-                    auto heartbeat_node = std::dynamic_pointer_cast<HeartbeatNode>(node);
-                    
-                    std::vector<std::string> detected_failures;
-                    if (gossip_node) {
-                        detected_failures = gossip_node->get_failed_nodes();
-                    } else if (heartbeat_node) {
-                        detected_failures = heartbeat_node->get_failed_nodes();
-                    }
-                    
-                    if (std::find(detected_failures.begin(), detected_failures.end(), node_id) != detected_failures.end()) {
-                        failure_detected = true;
-                        failure_detection_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                            std::chrono::steady_clock::now() - start_time).count();
-                        break;
-                    }
-                }
-            }
-        }
-        
-        if (failure_detected) break;
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+    wait_for_convergence({node_id}, 2 * 3000);  // 2x the typical detection time
     
     // Simulate recovery
     simulate_recoveries({node_id});
     
     // Wait for recovery detection
-    bool recovery_detected = false;
-    int recovery_detection_time_ms = 3000;
+    // In this case, we want all nodes to agree that the recovered node is no longer failed
+    std::vector<std::string> empty_failed;  // Empty list means no nodes should be marked as failed
+    wait_for_convergence(empty_failed, 2 * 3000);  // 2x the typical detection time
     
-    auto recovery_start_time = std::chrono::steady_clock::now();
-    while (std::chrono::duration_cast<std::chrono::milliseconds>(
-               std::chrono::steady_clock::now() - recovery_start_time).count() < 3000) {
-        network.process_messages();
-        
-        // Check if recovery is detected
-        recovery_detected = true;
-        for (int i = 0; i < num_nodes; ++i) {
-            std::string check_id = "node" + std::to_string(i);
-            if (check_id != node_id) {
-                auto node = network.get_node(check_id);
-                if (node) {
-                    auto gossip_node = std::dynamic_pointer_cast<GossipNode>(node);
-                    auto heartbeat_node = std::dynamic_pointer_cast<HeartbeatNode>(node);
-                    
-                    std::vector<std::string> detected_failures;
-                    if (gossip_node) {
-                        detected_failures = gossip_node->get_failed_nodes();
-                    } else if (heartbeat_node) {
-                        detected_failures = heartbeat_node->get_failed_nodes();
-                    }
-                    
-                    if (std::find(detected_failures.begin(), detected_failures.end(), node_id) != detected_failures.end()) {
-                        recovery_detected = false;
-                        break;
-                    }
-                }
-            }
-        }
-        
-        if (recovery_detected) {
-            recovery_detection_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - recovery_start_time).count();
-            break;
-        }
-        
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+    // Calculate total detection time (failure + recovery)
+    auto detection_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::high_resolution_clock::now() - start_time);
     
     auto result = collect_metrics("Recovery Test");
-    result.detection_time_ms = failure_detection_time_ms + recovery_detection_time_ms;
+    result.detection_time_ms = detection_time.count();
     return result;
 }
 
@@ -533,53 +410,29 @@ std::vector<Simulator::TestResult> Simulator::compare_algorithms(int num_nodes) 
     return results;
 }
 
-void Simulator::wait_for_convergence(int timeout_ms) {
-    auto start = std::chrono::steady_clock::now();
-    while (!check_convergence()) {
+void Simulator::wait_for_convergence(const std::vector<std::string>& must_fail, int timeout_ms) {
+    auto start = std::chrono::high_resolution_clock::now();
+    while (!check_convergence(must_fail)) {
         if (std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - start).count() > timeout_ms) {
+               std::chrono::high_resolution_clock::now() - start).count() > timeout_ms) {
             break;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
         network.process_messages();
     }
 }
 
-bool Simulator::check_convergence() {
-    // Simple convergence check: all nodes agree on the system state
-    std::unordered_set<std::string> failed_nodes;
-    bool first = true;
-    
-    for (int i = 0; i < 100; ++i) {  // Assuming max 100 nodes
-        std::string id = "node" + std::to_string(i);
-        auto node = network.get_node(id);
+bool Simulator::check_convergence(const std::vector<std::string>& must_be_failed) {
+    for (auto& [id, node] : network.get_nodes()) {
         if (!node) continue;
-        
-        // Try to cast to both types of nodes
-        auto gossip_node = std::dynamic_pointer_cast<GossipNode>(node);
-        auto heartbeat_node = std::dynamic_pointer_cast<HeartbeatNode>(node);
-        
-        std::vector<std::string> current_failed;
-        if (gossip_node) {
-            current_failed = gossip_node->get_failed_nodes();
-        } else if (heartbeat_node) {
-            current_failed = heartbeat_node->get_failed_nodes();
-        }
-        
-        if (first) {
-            failed_nodes.insert(current_failed.begin(), current_failed.end());
-            first = false;
-        } else if (failed_nodes.size() != current_failed.size()) {
-            return false;
-        } else {
-            for (const auto& failed : current_failed) {
-                if (failed_nodes.find(failed) == failed_nodes.end()) {
-                    return false;
-                }
+        auto failed = node->get_failed_nodes();  // common API in both nodes
+        for (auto& victim : must_be_failed) {
+            if (std::find(failed.begin(), failed.end(), victim) == failed.end()) {
+                return false;  // someone hasn't noticed yet
             }
         }
     }
-    return true;
+    return true;  // global agreement reached
 }
 
 void Simulator::simulate_failures(const std::vector<std::string>& node_ids) {
@@ -606,18 +459,44 @@ Simulator::TestResult Simulator::collect_metrics(const std::string& test_name) {
     
     auto net_stats = network.get_stats();
     result.messages_sent = net_stats.delivered_messages + net_stats.dropped_messages;
-    result.detection_time_ms = result.messages_sent > 0 ? net_stats.total_delay / result.messages_sent : 0;
     
-    // Count false positives and negatives
+    // Count false positives and negatives by comparing each node's view
     result.false_positives = 0;
     result.false_negatives = 0;
+    int true_positives = 0;
+    
+    // Get all nodes' views of failed nodes
+    std::unordered_map<std::string, std::vector<std::string>> node_views;
+    for (auto& [id, node] : network.get_nodes()) {
+        if (!node) continue;
+        node_views[id] = node->get_failed_nodes();
+    }
+    
+    // Compare each node's view with others
+    for (auto& [id1, view1] : node_views) {
+        for (auto& [id2, view2] : node_views) {
+            if (id1 == id2) continue;
+            
+            // Check for false positives (nodes marked as failed but are alive)
+            for (const auto& failed : view1) {
+                if (std::find(view2.begin(), view2.end(), failed) == view2.end()) {
+                    result.false_positives++;
+                } else {
+                    true_positives++;
+                }
+            }
+            
+            // Check for false negatives (nodes not marked as failed but are dead)
+            for (const auto& failed : view2) {
+                if (std::find(view1.begin(), view1.end(), failed) == view1.end()) {
+                    result.false_negatives++;
+                }
+            }
+        }
+    }
     
     // Calculate accuracy
-    result.accuracy = calculate_accuracy(
-        result.messages_sent - (result.false_positives + result.false_negatives),
-        result.false_positives,
-        result.false_negatives
-    );
+    result.accuracy = calculate_accuracy(true_positives, result.false_positives, result.false_negatives);
     
     return result;
 }

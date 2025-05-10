@@ -51,8 +51,8 @@ private:
     Network network;
     
     // Helper functions
-    void wait_for_convergence(int timeout_ms);
-    bool check_convergence();
+    void wait_for_convergence(const std::vector<std::string>& must_fail, int timeout_ms);
+    bool check_convergence(const std::vector<std::string>& must_be_failed);
     void simulate_failures(const std::vector<std::string>& node_ids);
     void simulate_recoveries(const std::vector<std::string>& node_ids);
     TestResult collect_metrics(const std::string& test_name);

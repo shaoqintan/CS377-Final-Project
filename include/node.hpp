@@ -45,6 +45,8 @@ public:
     virtual void process_message(const Message& msg) = 0;
     void process_message_queue();
 
+    virtual std::vector<std::string> get_failed_nodes() const = 0;  // Pure virtual method
+
 protected:
     // Helper functions
     void run();

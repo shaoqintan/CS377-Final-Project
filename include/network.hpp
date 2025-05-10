@@ -78,4 +78,7 @@ public:
     void heal_network_partition();
     NetworkStats get_stats() const;
     void reset_stats();
+    const std::unordered_map<std::string, std::shared_ptr<Node>>& get_nodes() const {
+        return nodes;  // guarded access is OK – we only read
+    }
 }; 

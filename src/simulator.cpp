@@ -216,7 +216,6 @@ Simulator::TestResult Simulator::run_high_load_test(int num_nodes) {
 }
 
 Simulator::TestResult Simulator::run_recovery_test(int num_nodes) {
-    // Generate some initial traffic
     for (int i = 0; i < num_nodes; ++i) {
         for (int j = 0; j < num_nodes; ++j) {
             if (i != j) {
@@ -227,36 +226,26 @@ Simulator::TestResult Simulator::run_recovery_test(int num_nodes) {
         }
     }
     
-    // Process initial messages
-    for (int i = 0; i < 50; ++i) {  // Process messages for 5 seconds
+    for (int i = 0; i < 50; ++i) {
         network.process_messages();
         this_thread::sleep_for(chrono::milliseconds(100));
     }
     
-    // Choose a random node to fail and recover
     string node_id = "node" + to_string(rand() % num_nodes);
     
-    // Reset network stats before recovery test
     network.reset_stats();
     
-    // Record start time
     auto start_time = chrono::high_resolution_clock::now();
     
-    // Simulate failure
     simulate_failures({node_id});
     
-    // Wait for failure detection
-    wait_for_convergence({node_id}, 2 * 3000);  // 2x the typical detection time
+    wait_for_convergence({node_id}, 2 * 3000);
     
-    // Simulate recovery
     simulate_recoveries({node_id});
     
-    // Wait for recovery detection
-    // In this case, we want all nodes to agree that the recovered node is no longer failed
-    vector<string> empty_failed;  // Empty list means no nodes should be marked as failed
-    wait_for_convergence(empty_failed, 2 * 3000);  // 2x the typical detection time
+    vector<string> empty_failed;
+    wait_for_convergence(empty_failed, 2 * 3000);
     
-    // Calculate total detection time (failure + recovery)
     auto detection_time = chrono::duration_cast<chrono::milliseconds>(
         chrono::high_resolution_clock::now() - start_time);
     
@@ -265,34 +254,50 @@ Simulator::TestResult Simulator::run_recovery_test(int num_nodes) {
     return result;
 }
 
-vector<Simulator::TestResult> Simulator::compare_algorithms(int num_nodes) {
+vector<Simulator::TestResult> Simulator::compare_algorithms(int num_nodes, bool force_rerun) {
     vector<TestResult> results;
+    string cache_key = "gossip_" + to_string(num_nodes);
     
-    // Test Gossip-based detection
-    cout << "\nRunning Gossip Network Tests...\n";
-    setup_gossip_network(num_nodes);
-    results.push_back(run_single_node_failure_test(num_nodes));
-    results.push_back(run_multiple_failures_test(num_nodes, num_nodes / 2));
-    results.push_back(run_network_partition_test(num_nodes));
-    results.push_back(run_high_load_test(num_nodes));
-    results.push_back(run_recovery_test(num_nodes));
-    cleanup_network();
+    if (!force_rerun && cached_results.find(cache_key) != cached_results.end()) {
+        results = cached_results[cache_key];
+    } else {
+        cout << "\nRunning Gossip Network Tests...\n";
+        setup_gossip_network(num_nodes);
+        vector<TestResult> gossip_results;
+        gossip_results.push_back(run_single_node_failure_test(num_nodes));
+        gossip_results.push_back(run_multiple_failures_test(num_nodes, num_nodes / 2));
+        gossip_results.push_back(run_network_partition_test(num_nodes));
+        gossip_results.push_back(run_high_load_test(num_nodes));
+        gossip_results.push_back(run_recovery_test(num_nodes));
+        cleanup_network();
+        
+        cached_results[cache_key] = gossip_results;
+        results = gossip_results;
+    }
     
-    // Test Heartbeat-based detection
-    cout << "\nRunning Heartbeat Network Tests...\n";
-    setup_heartbeat_network(num_nodes);
-    results.push_back(run_single_node_failure_test(num_nodes));
-    results.push_back(run_multiple_failures_test(num_nodes, num_nodes / 2));
-    results.push_back(run_network_partition_test(num_nodes));
-    results.push_back(run_high_load_test(num_nodes));
-    results.push_back(run_recovery_test(num_nodes));
-    cleanup_network();
+    cache_key = "heartbeat_" + to_string(num_nodes);
+    vector<TestResult> heartbeat_results;
     
-    // Print comparison results
+    if (!force_rerun && cached_results.find(cache_key) != cached_results.end()) {
+        heartbeat_results = cached_results[cache_key];
+    } else {
+        cout << "\nRunning Heartbeat Network Tests...\n";
+        setup_heartbeat_network(num_nodes);
+        heartbeat_results.push_back(run_single_node_failure_test(num_nodes));
+        heartbeat_results.push_back(run_multiple_failures_test(num_nodes, num_nodes / 2));
+        heartbeat_results.push_back(run_network_partition_test(num_nodes));
+        heartbeat_results.push_back(run_high_load_test(num_nodes));
+        heartbeat_results.push_back(run_recovery_test(num_nodes));
+        cleanup_network();
+        
+        cached_results[cache_key] = heartbeat_results;
+    }
+    
+    results.insert(results.end(), heartbeat_results.begin(), heartbeat_results.end());
+    
     cout << "\nAlgorithm Comparison Results:\n";
     cout << "===========================\n";
     
-    // Print Gossip Network Results
     cout << "\nGossip Network Results:\n";
     cout << "---------------------------\n";
     for (size_t i = 0; i < 5; ++i) {
@@ -305,7 +310,6 @@ vector<Simulator::TestResult> Simulator::compare_algorithms(int num_nodes) {
               << "  False Negatives: " << result.false_negatives << "\n\n";
     }
     
-    // Print Heartbeat Network Results
     cout << "\nHeartbeat Network Results:\n";
     cout << "---------------------------\n";
     for (size_t i = 5; i < 10; ++i) {
@@ -318,11 +322,9 @@ vector<Simulator::TestResult> Simulator::compare_algorithms(int num_nodes) {
                   << "  False Negatives: " << result.false_negatives << "\n\n";
     }
     
-    // Print Summary Statistics
     cout << "\nSummary Statistics:\n";
     cout << "---------------------------\n";
     
-    // Calculate averages for Gossip Network
     double gossip_avg_detection_time = 0;
     double gossip_avg_accuracy = 0;
     int gossip_total_messages = 0;
@@ -340,7 +342,6 @@ vector<Simulator::TestResult> Simulator::compare_algorithms(int num_nodes) {
     gossip_avg_detection_time /= 5;
     gossip_avg_accuracy /= 5;
     
-    // Calculate averages for Heartbeat Network
     double heartbeat_avg_detection_time = 0;
     double heartbeat_avg_accuracy = 0;
     int heartbeat_total_messages = 0;
@@ -358,7 +359,6 @@ vector<Simulator::TestResult> Simulator::compare_algorithms(int num_nodes) {
     heartbeat_avg_detection_time /= 5;
     heartbeat_avg_accuracy /= 5;
     
-    // Print Summary
     cout << "Gossip Network Averages:\n"
               << "  Average Detection Time: " << setw(8) << gossip_avg_detection_time << " ms\n"
               << "  Average Accuracy:      " << setw(8) << (gossip_avg_accuracy * 100) << " %\n"
@@ -391,14 +391,14 @@ void Simulator::wait_for_convergence(const vector<string>& must_fail, int timeou
 bool Simulator::check_convergence(const vector<string>& must_be_failed) {
     for (auto& [id, node] : network.get_nodes()) {
         if (!node) continue;
-        auto failed = node->get_failed_nodes();  // common API in both nodes
+        auto failed = node->get_failed_nodes();
         for (auto& victim : must_be_failed) {
             if (find(failed.begin(), failed.end(), victim) == failed.end()) {
-                return false;  // someone hasn't noticed yet
+                return false;
             }
         }
     }
-    return true;  // global agreement reached
+    return true;
 }
 
 void Simulator::simulate_failures(const vector<string>& node_ids) {
@@ -426,24 +426,20 @@ Simulator::TestResult Simulator::collect_metrics(const string& test_name) {
     auto net_stats = network.get_stats();
     result.messages_sent = net_stats.delivered_messages + net_stats.dropped_messages;
     
-    // Count false positives and negatives by comparing each node's view
     result.false_positives = 0;
     result.false_negatives = 0;
     int true_positives = 0;
     
-    // Get all nodes' views of failed nodes
     unordered_map<string, vector<string>> node_views;
     for (auto& [id, node] : network.get_nodes()) {
         if (!node) continue;
         node_views[id] = node->get_failed_nodes();
     }
     
-    // Compare each node's view with others
     for (auto& [id1, view1] : node_views) {
         for (auto& [id2, view2] : node_views) {
             if (id1 == id2) continue;
             
-            // Check for false positives (nodes marked as failed but are alive)
             for (const auto& failed : view1) {
                 if (find(view2.begin(), view2.end(), failed) == view2.end()) {
                     result.false_positives++;
@@ -452,7 +448,6 @@ Simulator::TestResult Simulator::collect_metrics(const string& test_name) {
                 }
             }
             
-            // Check for false negatives (nodes not marked as failed but are dead)
             for (const auto& failed : view2) {
                 if (find(view1.begin(), view1.end(), failed) == view1.end()) {
                     result.false_negatives++;
@@ -461,7 +456,6 @@ Simulator::TestResult Simulator::collect_metrics(const string& test_name) {
         }
     }
     
-    // Calculate accuracy
     result.accuracy = calculate_accuracy(true_positives, result.false_positives, result.false_negatives);
     
     return result;

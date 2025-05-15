@@ -7,6 +7,7 @@
 #include <string>
 #include <chrono>
 #include <functional>
+#include <unordered_map>
 
 using namespace std;
 
@@ -37,7 +38,7 @@ public:
     TestResult run_recovery_test(int num_nodes);
 
     // Comparison tests
-    vector<TestResult> compare_algorithms(int num_nodes);
+    vector<TestResult> compare_algorithms(int num_nodes, bool force_rerun = false);
     void run_all_tests(int num_nodes);
 
     // New test methods for hybrid network
@@ -51,6 +52,9 @@ public:
 
 private:
     Network network;
+    
+    // Store test results for reuse
+    unordered_map<string, vector<TestResult>> cached_results;
     
     // Helper functions
     void wait_for_convergence(const vector<string>& must_fail, int timeout_ms);

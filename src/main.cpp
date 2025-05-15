@@ -68,18 +68,7 @@ int main() {
         cout << "TESTING WITH " << size << " NODES\n";
         cout << "==========================================\n";
         
-        simulator.setup_gossip_network(size);
-        run_network_tests(simulator, size, "Gossip");
-        simulator.cleanup_network();
-        
-        simulator.setup_heartbeat_network(size);
-        run_network_tests(simulator, size, "Heartbeat");
-        simulator.cleanup_network();
-        
-        cout << "\nAlgorithm Comparison Results:\n";
-        cout << "------------------------------------------\n";
         simulator.compare_algorithms(size);
-        cout << "------------------------------------------\n";
     }
     
     return 0;

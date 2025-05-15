@@ -5,9 +5,11 @@
 #include "../include/network.hpp"
 #include "../include/simulator.hpp"
 
+using namespace std;
+
 // Test Node base class
 TEST(NodeTest, BasicFunctionality) {
-    GossipNode node("test_node", std::vector<std::string>());
+    GossipNode node("test_node", vector<string>());
     EXPECT_EQ(node.get_id(), "test_node");
     EXPECT_TRUE(node.is_node_alive());
     
@@ -17,7 +19,7 @@ TEST(NodeTest, BasicFunctionality) {
 
 // Test GossipNode
 TEST(GossipNodeTest, BasicFunctionality) {
-    std::vector<std::string> peers = {"peer1", "peer2", "peer3"};
+    vector<string> peers = {"peer1", "peer2", "peer3"};
     GossipNode node("test_node", peers);
     
     EXPECT_EQ(node.get_id(), "test_node");
@@ -51,7 +53,7 @@ TEST(NetworkTest, BasicFunctionality) {
     Network network;
     
     // Test node management
-    auto node = std::make_shared<GossipNode>("test_node", std::vector<std::string>());
+    auto node = make_shared<GossipNode>("test_node", vector<string>());
     network.add_node("test_node", node);
     EXPECT_EQ(network.get_node("test_node"), node);
     

@@ -8,10 +8,12 @@
 #include <chrono>
 #include <functional>
 
+using namespace std;
+
 class Simulator {
 public:
     struct TestResult {
-        std::string test_name;
+        string test_name;
         double detection_time_ms;
         int false_positives;
         int false_negatives;
@@ -35,7 +37,7 @@ public:
     TestResult run_recovery_test(int num_nodes);
 
     // Comparison tests
-    std::vector<TestResult> compare_algorithms(int num_nodes);
+    vector<TestResult> compare_algorithms(int num_nodes);
     void run_all_tests(int num_nodes);
 
     // New test methods for hybrid network
@@ -51,10 +53,10 @@ private:
     Network network;
     
     // Helper functions
-    void wait_for_convergence(const std::vector<std::string>& must_fail, int timeout_ms);
-    bool check_convergence(const std::vector<std::string>& must_be_failed);
-    void simulate_failures(const std::vector<std::string>& node_ids);
-    void simulate_recoveries(const std::vector<std::string>& node_ids);
-    TestResult collect_metrics(const std::string& test_name);
+    void wait_for_convergence(const vector<string>& must_fail, int timeout_ms);
+    bool check_convergence(const vector<string>& must_be_failed);
+    void simulate_failures(const vector<string>& node_ids);
+    void simulate_recoveries(const vector<string>& node_ids);
+    TestResult collect_metrics(const string& test_name);
     double calculate_accuracy(int true_positives, int false_positives, int false_negatives);
 }; 

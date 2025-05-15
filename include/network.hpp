@@ -11,30 +11,32 @@
 #include <chrono>
 #include <memory>
 
+using namespace std;
+
 class Node;  // Forward declaration
 
 class Network {
 private:
     struct Message {
-        std::string from_id;
-        std::string to_id;
-        std::string content;
-        std::chrono::system_clock::time_point delivery_time;
+        string from_id;
+        string to_id;
+        string content;
+        chrono::system_clock::time_point delivery_time;
 
         bool operator<(const Message& other) const {
             return delivery_time > other.delivery_time;  // For min-heap priority queue
         }
     };
 
-    std::mt19937 rng;
-    std::uniform_real_distribution<double> loss_dist;
-    std::normal_distribution<double> delay_dist;
+    mt19937 rng;
+    uniform_real_distribution<double> loss_dist;
+    normal_distribution<double> delay_dist;
 
-    std::unordered_map<std::string, std::shared_ptr<Node>> nodes;
-    std::mutex nodes_mutex;
+    unordered_map<string, shared_ptr<Node>> nodes;
+    mutex nodes_mutex;
     
-    std::priority_queue<Message> message_queue;
-    std::mutex queue_mutex;
+    priority_queue<Message> message_queue;
+    mutex queue_mutex;
 
     // Network parameters
     const double message_loss_rate = 0.1;  // 10% message loss rate
@@ -42,13 +44,13 @@ private:
     const double std_dev_delay = 10.0;     // Standard deviation of delay
 
     // Network partition simulation
-    std::unordered_map<std::string, std::unordered_set<std::string>> partitions;
-    std::mutex partition_mutex;
+    unordered_map<string, unordered_set<string>> partitions;
+    mutex partition_mutex;
 
     struct NetworkStats {
-        std::atomic<int> delivered_messages;
-        std::atomic<int> dropped_messages;
-        std::atomic<double> total_delay;
+        atomic<int> delivered_messages;
+        atomic<int> dropped_messages;
+        atomic<double> total_delay;
 
         NetworkStats() : delivered_messages(0), dropped_messages(0), total_delay(0.0) {}
         
@@ -67,18 +69,18 @@ public:
     Network();
     ~Network() = default;
 
-    void add_node(const std::string& node_id, std::shared_ptr<Node> node);
-    void remove_node(const std::string& node_id);
-    std::shared_ptr<Node> get_node(const std::string& node_id);
-    void send_message(const std::string& from_id, const std::string& to_id, const std::string& content);
+    void add_node(const string& node_id, shared_ptr<Node> node);
+    void remove_node(const string& node_id);
+    shared_ptr<Node> get_node(const string& node_id);
+    void send_message(const string& from_id, const string& to_id, const string& content);
     void process_messages();
-    void simulate_network_partition(const std::vector<std::string>& partition1,
-                                  const std::vector<std::string>& partition2,
+    void simulate_network_partition(const vector<string>& partition1,
+                                  const vector<string>& partition2,
                                   int duration_ms);
     void heal_network_partition();
     NetworkStats get_stats() const;
     void reset_stats();
-    const std::unordered_map<std::string, std::shared_ptr<Node>>& get_nodes() const {
+    const unordered_map<string, shared_ptr<Node>>& get_nodes() const {
         return nodes;  // guarded access is OK – we only read
     }
 }; 

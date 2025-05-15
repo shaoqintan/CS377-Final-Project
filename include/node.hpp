@@ -9,47 +9,49 @@
 #include <queue>
 #include <functional>
 
+using namespace std;
+
 class Node {
 protected:
-    std::string id;
-    std::atomic<bool> is_alive;
-    std::atomic<bool> is_running;
-    std::mutex state_mutex;
-    std::thread node_thread;
+    string id;
+    atomic<bool> is_alive;
+    atomic<bool> is_running;
+    mutex state_mutex;
+    thread node_thread;
     
     // Message queue for thread-safe communication
     struct Message {
-        std::string from_id;
-        std::string content;
-        std::chrono::system_clock::time_point timestamp;
+        string from_id;
+        string content;
+        chrono::system_clock::time_point timestamp;
     };
-    std::queue<Message> message_queue;
-    std::mutex queue_mutex;
+    queue<Message> message_queue;
+    mutex queue_mutex;
 
 public:
-    Node(const std::string& node_id);
+    Node(const string& node_id);
     virtual ~Node();
 
     // Core functionality
     virtual void start() = 0;
     virtual void stop();
-    virtual void send_message(const std::string& to_id, const std::string& content) = 0;
-    virtual void receive_message(const std::string& from_id, const std::string& content);
+    virtual void send_message(const string& to_id, const string& content) = 0;
+    virtual void receive_message(const string& from_id, const string& content);
     
     // State management
     bool is_node_alive() const { return is_alive; }
     void set_alive(bool status) { is_alive = status; }
-    std::string get_id() const { return id; }
+    string get_id() const { return id; }
 
     // Message processing
     virtual void process_message(const Message& msg) = 0;
     void process_message_queue();
 
-    virtual std::vector<std::string> get_failed_nodes() const = 0;  // Pure virtual method
+    virtual vector<string> get_failed_nodes() const = 0;  // Pure virtual method
 
 protected:
     // Helper functions
     void run();
     virtual void periodic_task() = 0;
-    std::chrono::system_clock::time_point get_current_time() const;
+    chrono::system_clock::time_point get_current_time() const;
 }; 

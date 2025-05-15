@@ -4,15 +4,17 @@
 #include <unordered_map>
 #include <chrono>
 
+using namespace std;
+
 class HeartbeatNode : public Node {
 private:
     // Node state tracking
     struct NodeState {
         bool is_alive;
-        std::chrono::system_clock::time_point last_heartbeat;
+        chrono::system_clock::time_point last_heartbeat;
     };
-    std::unordered_map<std::string, NodeState> node_states;
-    mutable std::mutex states_mutex;
+    unordered_map<string, NodeState> node_states;
+    mutable mutex states_mutex;
 
     // Heartbeat parameters
     const int heartbeat_interval_ms = 1000;    // Time between heartbeats
@@ -25,22 +27,22 @@ private:
         int heartbeats_received;
         int false_positives;
         int false_negatives;
-        std::chrono::system_clock::time_point last_metrics_reset;
+        chrono::system_clock::time_point last_metrics_reset;
     } metrics;
 
 public:
-    HeartbeatNode(const std::string& node_id, bool is_master_node);
+    HeartbeatNode(const string& node_id, bool is_master_node);
     ~HeartbeatNode() override = default;
 
     // Core functionality
     void start() override;
-    void send_message(const std::string& to_id, const std::string& content) override;
+    void send_message(const string& to_id, const string& content) override;
     void process_message(const Message& msg) override;
 
     // State management
-    std::vector<std::string> get_failed_nodes() const;
-    void add_node(const std::string& node_id);
-    void remove_node(const std::string& node_id);
+    vector<string> get_failed_nodes() const;
+    void add_node(const string& node_id);
+    void remove_node(const string& node_id);
     bool is_master_node() const { return is_master; }
 
     // Metrics
@@ -54,6 +56,6 @@ private:
     // Helper functions
     void send_heartbeat();
     void check_node_health();
-    void update_node_state(const std::string& node_id, bool is_alive);
-    bool is_node_failed(const std::string& node_id) const;
+    void update_node_state(const string& node_id, bool is_alive);
+    bool is_node_failed(const string& node_id) const;
 }; 

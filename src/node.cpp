@@ -1,6 +1,8 @@
 #include "node.hpp"
 
-Node::Node(const std::string& node_id) 
+using namespace std;
+
+Node::Node(const string& node_id) 
     : id(node_id), is_alive(true), is_running(false) {}
 
 Node::~Node() {
@@ -14,14 +16,14 @@ void Node::stop() {
     }
 }
 
-void Node::receive_message(const std::string& from_id, const std::string& content) {
+void Node::receive_message(const string& from_id, const string& content) {
     Message msg{from_id, content, get_current_time()};
-    std::lock_guard<std::mutex> lock(queue_mutex);
+    lock_guard<mutex> lock(queue_mutex);
     message_queue.push(msg);
 }
 
 void Node::process_message_queue() {
-    std::lock_guard<std::mutex> lock(queue_mutex);
+    lock_guard<mutex> lock(queue_mutex);
     while (!message_queue.empty()) {
         Message msg = message_queue.front();
         message_queue.pop();
@@ -33,10 +35,10 @@ void Node::run() {
     while (is_running) {
         process_message_queue();
         periodic_task();
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        this_thread::sleep_for(chrono::milliseconds(100));
     }
 }
 
-std::chrono::system_clock::time_point Node::get_current_time() const {
-    return std::chrono::system_clock::now();
+chrono::system_clock::time_point Node::get_current_time() const {
+    return chrono::system_clock::now();
 } 
